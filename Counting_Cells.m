@@ -49,11 +49,19 @@ for i = 1:length(img_paths)
     this_img_path = fullfile(img_dir_path,img_paths(i).name);
     % read in image
     this_img = imread(this_img_path);
-    % convert to grayscale
-    data = im2gray(this_img); 
     
-    imshow(data);
-    [centers, radii] = imfindcircles(data,[8 30]);
+    % convert to grayscale
+
+    data = this_img;  
+    data = rgb2gray(this_img); 
+    
+    % get threshold
+    thresh = mean2(data) + 0.01*std2(data);
+    % get mask
+    masked_data = bwareaopen(data > thresh,1000,4);
+    
+    imshow(masked_data);
+    [centers, radii] = imfindcircles(masked_data,[8 30]);
     viscircles(centers, radii, 'EdgeColor','r');
     
     img_num_colony(i) = length(centers);
