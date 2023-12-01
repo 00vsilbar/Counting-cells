@@ -11,20 +11,23 @@ clear all
 close all force hidden
 
 curr_path = pwd;
-disp('Select Experiment')
+disp('Select Image Folder')
 
 img_dir_path = uigetdir(curr_path);
 
-%set to 0 if you don't care about separating colonies
-manually_separate = 1;
+% if you want to show output while running
+display_export = 1;
 
-% crop the images if they are just kinda bad
-crop_images = 1;
+% if images have the large circle in view
+large_circle = 0;
 
-% export the masks 
-export_masks = 1;
+% check for *.tif or whatever images you're looking for
+img_paths = dir(fullfile(img_dir_path, '*.tif'));
 
-img_paths = dir(fullfile(img_dir_path, '*.png'));
+% if still empty, error
+if isempty(img_paths)
+    error('No images found in folder');
+end
 
 disp(['Processing data for: ' img_dir_path])
 
@@ -36,6 +39,10 @@ img_num = strings(1,length(img_paths));
 total_num_colony = zeros(1,length(img_paths));
 img_num_colony = zeros(1,length(img_paths));
 count = 1;
+
+ if ~exist(fullfile(img_dir_path,'exported_images'),'dir')
+       mkdir(fullfile(img_dir_path,'exported_images'))
+ end
 
 for i = 1:length(img_paths)
     
@@ -51,19 +58,36 @@ for i = 1:length(img_paths)
     this_img = imread(this_img_path);
     
     % convert to grayscale
+    if large_circle == 1
+        data = im2gray(this_img);
+        this_img_hsv = rgb2hsv(this_img);
+        big_circle = imfill(this_img_hsv(:,:,3)>0.2,'holes');
+        imshow(big_circle);
 
-    data = this_img;  
-    data = rgb2gray(this_img); 
+        masked_data = ((big_circle.*this_img_hsv(:,:,1)) > 0.70);
+
+        %imshow(masked_data,[]);
+
+        [centers, radii] = imfindcircles(masked_data,[8 30]);
+    else  
+        data = im2gray(this_img); 
+        
+        % % get threshold
+        % thresh = mean2(data) + 0.01*std2(data);
+        % % get mask
+        % masked_data = bwareaopen(data > thresh,1000,4);
+
+        %imshow(masked_data);
+        [centers, radii] = imfindcircles(data,[8 30]);
+    end
     
-    % get threshold
-    thresh = mean2(data) + 0.01*std2(data);
-    % get mask
-    masked_data = bwareaopen(data > thresh,1000,4);
-    
-    imshow(masked_data);
-    [centers, radii] = imfindcircles(masked_data,[8 30]);
-    viscircles(centers, radii, 'EdgeColor','r');
-    
+    % drawing circles
+    % set to 0 if you don't want to show the image while running
+    if display_export == 1
+        imshow(data,[]);
+        viscircles(centers, radii, 'EdgeColor','r');
+    end
+
     img_num_colony(i) = length(centers);
     saveas(gcf, fullfile(img_dir_path,'exported_images',img_paths(i).name));
     
@@ -84,7 +108,7 @@ end
 
 T = cell2table(cellstr(final_table),'VariableNames',csv_header);
 
-output_csv_path = fullfile(img_dir_path,'data.csv');
+output_csv_path = fullfile(img_dir_path,'Exported_data.csv');
 disp(['Data output to ' output_csv_path])
 
 writetable(T,output_csv_path);
